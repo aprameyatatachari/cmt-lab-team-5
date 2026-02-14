@@ -7,6 +7,8 @@ public class Order {
     private char side;
     private double price;
     private double quantity;
+    private double cumQty;
+    private String ordStatus;
 
     // Constructor
     public Order() {
@@ -18,6 +20,28 @@ public class Order {
         this.side = side;
         this.price = price;
         this.quantity = quantity;
+        this.cumQty = 0;
+        this.ordStatus = "NEW";
+    }
+
+    public Order(String clOrdID, String symbol, char side, double price, double quantity, double cumQty) {
+        this.clOrdID = clOrdID;
+        this.symbol = symbol;
+        this.side = side;
+        this.price = price;
+        this.quantity = quantity;
+        this.cumQty = cumQty;
+        this.ordStatus = "NEW";
+    }
+
+    public Order(String clOrdID, String symbol, char side, double price, double quantity, double cumQty, String ordStatus) {
+        this.clOrdID = clOrdID;
+        this.symbol = symbol;
+        this.side = side;
+        this.price = price;
+        this.quantity = quantity;
+        this.cumQty = cumQty;
+        this.ordStatus = ordStatus;
     }
 
     // Getters and Setters
@@ -61,6 +85,22 @@ public class Order {
         this.quantity = quantity;
     }
 
+    public double getCumQty() {
+        return cumQty;
+    }
+
+    public void setCumQty(double cumQty) {
+        this.cumQty = cumQty;
+    }
+
+    public String getOrdStatus() {
+        return ordStatus;
+    }
+
+    public void setOrdStatus(String ordStatus) {
+        this.ordStatus = ordStatus;
+    }
+
     @Override
     public String toString() {
         return "Order{" +
@@ -69,6 +109,8 @@ public class Order {
                 ", side=" + side +
                 ", price=" + price +
                 ", quantity=" + quantity +
+                ", cumQty=" + cumQty +
+                ", ordStatus='" + ordStatus + '\'' +
                 '}';
     }
 }

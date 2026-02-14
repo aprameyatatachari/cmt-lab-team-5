@@ -10,8 +10,38 @@ import quickfix.RejectLogon;
 import quickfix.UnsupportedMessageType;
 import quickfix.Session;
 import quickfix.field.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class OrderApplication implements Application {
+    private final OrderBroadcaster broadcaster;
+    // Track net position per symbol (buys - sells)
+    private final ConcurrentHashMap<String, Double> symbolNetPosition = new ConcurrentHashMap<>();
+    // Order books: buy and sell orders per symbol
+    private final ConcurrentHashMap<String, Queue<PendingOrder>> buyOrders = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Queue<PendingOrder>> sellOrders = new ConcurrentHashMap<>();
+    
+    // Inner class to track pending orders
+    private static class PendingOrder {
+        String clOrdID;
+        double price;
+        double remainingQty;
+        
+        PendingOrder(String clOrdID, double price, double qty) {
+            this.clOrdID = clOrdID;
+            this.price = price;
+            this.remainingQty = qty;
+        }
+    }
+    
+    public OrderApplication() {
+        this(null);
+    }
+    
+    public OrderApplication(OrderBroadcaster broadcaster) {
+        this.broadcaster = broadcaster;
+    }
     @Override
     public void onCreate(SessionID sessionId) {
     System.out.println("Session Created: " + sessionId);
@@ -72,11 +102,84 @@ public class OrderApplication implements Application {
                 sendReject(message, sessionId, "Invalid Price or Qty");
             } else {
                 acceptOrder(message, sessionId);
+                
+                // Try to match the order
+                String orderStatus = matchOrder(clOrdId, symbol, side, price, qty);
+                
+                // Calculate net position (buys - sells)
+                double netPosition = symbolNetPosition.getOrDefault(symbol, 0.0);
+                
+                // Broadcast to UI with net position
+                Order order = new Order(clOrdId, symbol, side, price, qty, netPosition, orderStatus);
+                if (broadcaster != null) {
+                    broadcaster.broadcastOrder(order);
+                }
             }
             
         } catch (FieldNotFound e) {
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * Match orders - simple price/time priority matching
+     */
+    private String matchOrder(String clOrdId, String symbol, char side, double price, double qty) {
+        double remainingQty = qty;
+        boolean isBuy = (side == '1');
+        
+        // Get opposite side order book
+        Queue<PendingOrder> oppositeBook = isBuy ? 
+            sellOrders.computeIfAbsent(symbol, k -> new LinkedList<>()) :
+            buyOrders.computeIfAbsent(symbol, k -> new LinkedList<>());
+        
+        // Try to match against opposite side
+        while (remainingQty > 0 && !oppositeBook.isEmpty()) {
+            PendingOrder oppositeOrder = oppositeBook.peek();
+            
+            // Check if prices match (simple matching - same price)
+            if (Math.abs(oppositeOrder.price - price) < 0.01) {
+                double matchQty = Math.min(remainingQty, oppositeOrder.remainingQty);
+                
+                // Execute the match
+                remainingQty -= matchQty;
+                oppositeOrder.remainingQty -= matchQty;
+                
+                System.out.printf("✅ MATCHED: %s %.0f shares at %.2f (Buy vs Sell)%n", 
+                    symbol, matchQty, price);
+                
+                // Remove opposite order if fully filled
+                if (oppositeOrder.remainingQty <= 0) {
+                    oppositeBook.poll();
+                }
+            } else {
+                // No match at this price
+                break;
+            }
+        }
+        
+        // Update net position
+        double positionChange = isBuy ? qty : -qty;
+        double newNetPosition = symbolNetPosition.merge(symbol, positionChange, Double::sum);
+        
+        // Add remaining quantity to order book if not fully filled
+        String status;
+        if (remainingQty > 0) {
+            Queue<PendingOrder> ownBook = isBuy ?
+                buyOrders.computeIfAbsent(symbol, k -> new LinkedList<>()) :
+                sellOrders.computeIfAbsent(symbol, k -> new LinkedList<>());
+            ownBook.add(new PendingOrder(clOrdId, price, remainingQty));
+            
+            if (remainingQty < qty) {
+                status = "PARTIALLY_FILLED";
+            } else {
+                status = "NEW";
+            }
+        } else {
+            status = "FILLED";
+        }
+        
+        return status;
     }
     
     /**

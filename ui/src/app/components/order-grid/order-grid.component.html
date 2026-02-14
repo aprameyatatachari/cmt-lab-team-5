@@ -1,0 +1,69 @@
+<div class="order-grid-container">
+  <div class="grid-header">
+    <div class="title-section">
+      <h2>Live Order Blotter</h2>
+      <span class="order-count">{{ orders.length }} orders</span>
+    </div>
+    <button class="clear-btn" (click)="clearOrders()" *ngIf="orders.length > 0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+      </svg>
+      Clear
+    </button>
+  </div>
+
+  <div class="table-container" *ngIf="orders.length > 0; else emptyState">
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th>Quantity</th>
+          <th>Net Qty</th>
+          <th>Price</th>
+          <th>Value</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of orders; trackBy: trackByOrderId" 
+            [class.new-order]="order.isNew"
+            [class.buy-row]="getSideClass(order.side) === 'buy'"
+            [class.sell-row]="getSideClass(order.side) === 'sell'">
+          <td class="order-id">{{ order.clOrdID }}</td>
+          <td class="symbol">{{ order.symbol }}</td>
+          <td>
+            <span class="side-badge" [class]="getSideClass(order.side)">
+              {{ getSideLabel(order.side) }}
+            </span>
+          </td>
+          <td class="numeric">{{ formatQuantity(order.quantity) }}</td>
+          <td class="numeric cumqty" [class.positive]="order.cumQty > 0" [class.negative]="order.cumQty < 0">{{ formatQuantity(order.cumQty) }}</td>
+          <td class="numeric price">${{ formatPrice(order.price) }}</td>
+          <td class="numeric value">${{ formatPrice(order.price * order.quantity) }}</td>
+          <td>
+            <span class="status-badge" [class]="getStatusClass(order.ordStatus)">
+              {{ order.ordStatus }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        <path d="M9 12h6m-6 4h6"/>
+      </svg>
+      <h3>No orders yet</h3>
+      <p>Orders will appear here as they are received from the FIX gateway</p>
+      <div class="status-indicator" [class.connected]="connected">
+        <span class="dot"></span>
+        <span>{{ connected ? 'Connected to backend' : 'Connecting...' }}</span>
+      </div>
+    </div>
+  </ng-template>
+</div>
