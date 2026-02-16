@@ -10,6 +10,7 @@ export interface Order {
   cumQty: number;
   ordStatus: string;
   isNew?: boolean;
+  timestamp?: number;
 }
 
 @Injectable({
@@ -39,6 +40,10 @@ export class WebsocketService {
       this.socket.onmessage = (event) => {
         try {
           const order: Order = JSON.parse(event.data);
+          // Add timestamp if not provided by backend
+          if (!order.timestamp) {
+            order.timestamp = Date.now();
+          }
           console.log('📦 Received order:', order);
           this.messagesSubject.next(order);
         } catch (error) {

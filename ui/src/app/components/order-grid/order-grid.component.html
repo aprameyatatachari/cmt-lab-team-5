@@ -1,48 +1,269 @@
 <div class="order-grid-container">
+  <!-- Header with Title and Actions -->
   <div class="grid-header">
     <div class="title-section">
       <h2>Live Order Blotter</h2>
-      <span class="order-count">{{ orders.length }} orders</span>
+      <span class="order-count">{{ filteredOrders.length }} / {{ stats.totalOrders }} orders</span>
     </div>
-    <button class="clear-btn" (click)="clearOrders()" *ngIf="orders.length > 0">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+    
+    <div class="header-actions">
+      <button class="icon-btn" (click)="toggleStats()" [class.active]="showStats" title="Toggle Statistics">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 3v18h18M7 16l4-8 4 8 4-12"/>
+        </svg>
+      </button>
+      
+      <button class="icon-btn" (click)="toggleSound()" [class.active]="soundEnabled" title="Toggle Sound">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path *ngIf="soundEnabled" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+          <path *ngIf="!soundEnabled" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+        </svg>
+      </button>
+      
+      <button class="icon-btn" (click)="toggleTheme()" title="Toggle Theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path *ngIf="theme === 'dark'" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          <circle *ngIf="theme === 'light'" cx="12" cy="12" r="5"/>
+          <path *ngIf="theme === 'light'" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
+      
+      <button class="icon-btn" (click)="toggleColumnConfig()" title="Column Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v6m0 6v10M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h10M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/>
+        </svg>
+      </button>
+      
+      <button class="action-btn export-btn" (click)="exportToCSV()" *ngIf="filteredOrders.length > 0" title="Export to CSV">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Export
+      </button>
+      
+      <button class="action-btn clear-btn" (click)="clearOrders()" *ngIf="orders.length > 0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+        </svg>
+        Clear
+      </button>
+    </div>
+  </div>
+  
+  <!-- Statistics Dashboard -->
+  <div class="stats-container" *ngIf="showStats && orders.length > 0">
+    <div class="stat-card">
+      <div class="stat-label">Total Orders</div>
+      <div class="stat-value">{{ stats.totalOrders }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Value</div>
+      <div class="stat-value">${{ stats.totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</div>
+    </div>
+    <div class="stat-card buy">
+      <div class="stat-label">Buy Orders</div>
+      <div class="stat-value">{{ stats.buyOrders }}</div>
+    </div>
+    <div class="stat-card sell">
+      <div class="stat-label">Sell Orders</div>
+      <div class="stat-value">{{ stats.sellOrders }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fill Rate</div>
+      <div class="stat-value">{{ stats.fillRate.toFixed(1) }}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Order Size</div>
+      <div class="stat-value">{{ stats.avgOrderSize.toLocaleString(undefined, {maximumFractionDigits: 0}) }}</div>
+    </div>
+  </div>
+  
+  <!-- Column Configuration Panel -->
+  <div class="config-panel" *ngIf="showColumnConfig">
+    <h3>Column Visibility</h3>
+    <div class="column-toggles">
+      <label *ngFor="let col of columns" class="column-toggle">
+        <input type="checkbox" [checked]="col.visible" (change)="toggleColumn(col.key)">
+        <span>{{ col.label }}</span>
+      </label>
+    </div>
+  </div>
+  
+  <!-- Filters and Search -->
+  <div class="filter-section">
+    <div class="search-bar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35"/>
       </svg>
-      Clear
-    </button>
+      <input 
+        type="text" 
+        placeholder="Search by Order ID, Symbol, or Status..." 
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        class="search-input"
+      />
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()" class="clear-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <div class="filter-buttons">
+        <button 
+          class="filter-btn" 
+          [class.active]="sideFilter === 'all'"
+          (click)="setSideFilter('all')">
+          All Sides
+        </button>
+        <button 
+          class="filter-btn buy" 
+          [class.active]="sideFilter === 'buy'"
+          (click)="setSideFilter('buy')">
+          Buy Only
+        </button>
+        <button 
+          class="filter-btn sell" 
+          [class.active]="sideFilter === 'sell'"
+          (click)="setSideFilter('sell')">
+          Sell Only
+        </button>
+      </div>
+      
+      <div class="filter-buttons">
+        <button 
+          class="filter-btn" 
+          [class.active]="statusFilter === 'all'"
+          (click)="setStatusFilter('all')">
+          All Status
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="statusFilter === 'NEW'"
+          (click)="setStatusFilter('NEW')">
+          New
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="statusFilter === 'FILLED'"
+          (click)="setStatusFilter('FILLED')">
+          Filled
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="statusFilter === 'REJECTED'"
+          (click)="setStatusFilter('REJECTED')">
+          Rejected
+        </button>
+      </div>
+      
+      <div class="filter-buttons">
+        <button 
+          class="filter-btn" 
+          [class.active]="timeFilter === 'all'"
+          (click)="setTimeFilter('all')">
+          All Time
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="timeFilter === '5min'"
+          (click)="setTimeFilter('5min')">
+          Last 5 Min
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="timeFilter === '1hour'"
+          (click)="setTimeFilter('1hour')">
+          Last Hour
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="timeFilter === 'today'"
+          (click)="setTimeFilter('today')">
+          Today
+        </button>
+      </div>
+    </div>
   </div>
 
-  <div class="table-container" *ngIf="orders.length > 0; else emptyState">
+  <div class="table-container" *ngIf="filteredOrders.length > 0; else emptyState">
     <table class="order-table">
       <thead>
         <tr>
-          <th>Order ID</th>
-          <th>Symbol</th>
-          <th>Side</th>
-          <th>Quantity</th>
-          <th>Net Qty</th>
-          <th>Price</th>
-          <th>Value</th>
-          <th>Status</th>
+          <th *ngIf="isColumnVisible('timestamp')" (click)="sort('timestamp')" class="sortable">
+            Time
+            <svg *ngIf="sortColumn === 'timestamp'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('clOrdID')" (click)="sort('clOrdID')" class="sortable">
+            Order ID
+            <svg *ngIf="sortColumn === 'clOrdID'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('symbol')" (click)="sort('symbol')" class="sortable">
+            Symbol
+            <svg *ngIf="sortColumn === 'symbol'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('side')">Side</th>
+          <th *ngIf="isColumnVisible('quantity')" (click)="sort('quantity')" class="sortable">
+            Quantity
+            <svg *ngIf="sortColumn === 'quantity'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('cumQty')">Net Qty</th>
+          <th *ngIf="isColumnVisible('price')" (click)="sort('price')" class="sortable">
+            Price
+            <svg *ngIf="sortColumn === 'price'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('value')" (click)="sort('value')" class="sortable">
+            Value
+            <svg *ngIf="sortColumn === 'value'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
+          <th *ngIf="isColumnVisible('ordStatus')" (click)="sort('ordStatus')" class="sortable">
+            Status
+            <svg *ngIf="sortColumn === 'ordStatus'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path *ngIf="sortDirection === 'asc'" d="M12 19V5M5 12l7-7 7 7"/>
+              <path *ngIf="sortDirection === 'desc'" d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+          </th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let order of orders; trackBy: trackByOrderId" 
+        <tr *ngFor="let order of filteredOrders; trackBy: trackByOrderId" 
             [class.new-order]="order.isNew"
             [class.buy-row]="getSideClass(order.side) === 'buy'"
             [class.sell-row]="getSideClass(order.side) === 'sell'">
-          <td class="order-id">{{ order.clOrdID }}</td>
-          <td class="symbol">{{ order.symbol }}</td>
-          <td>
+          <td *ngIf="isColumnVisible('timestamp')" class="timestamp">{{ formatTimestamp(order.timestamp) }}</td>
+          <td *ngIf="isColumnVisible('clOrdID')" class="order-id">{{ order.clOrdID }}</td>
+          <td *ngIf="isColumnVisible('symbol')" class="symbol">{{ order.symbol }}</td>
+          <td *ngIf="isColumnVisible('side')">
             <span class="side-badge" [class]="getSideClass(order.side)">
               {{ getSideLabel(order.side) }}
             </span>
           </td>
-          <td class="numeric">{{ formatQuantity(order.quantity) }}</td>
-          <td class="numeric cumqty" [class.positive]="order.cumQty > 0" [class.negative]="order.cumQty < 0">{{ formatQuantity(order.cumQty) }}</td>
-          <td class="numeric price">${{ formatPrice(order.price) }}</td>
-          <td class="numeric value">${{ formatPrice(order.price * order.quantity) }}</td>
-          <td>
+          <td *ngIf="isColumnVisible('quantity')" class="numeric">{{ formatQuantity(order.quantity) }}</td>
+          <td *ngIf="isColumnVisible('cumQty')" class="numeric cumqty" [class.positive]="order.cumQty > 0" [class.negative]="order.cumQty < 0">{{ formatQuantity(order.cumQty) }}</td>
+          <td *ngIf="isColumnVisible('price')" class="numeric price">${{ formatPrice(order.price) }}</td>
+          <td *ngIf="isColumnVisible('value')" class="numeric value">${{ formatPrice(order.price * order.quantity) }}</td>
+          <td *ngIf="isColumnVisible('ordStatus')">
             <span class="status-badge" [class]="getStatusClass(order.ordStatus)">
               {{ order.ordStatus }}
             </span>
